@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="816b0caa-6e52-4c03-aed0-728e7179d867" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="f7ff74a1-1d0b-4a54-ab09-c79a14b50d2c" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="prakash" database="prakash" />
+	</db:config>
+	<flow name="git_projectFlow" doc:id="8d8f1ac7-7317-4102-aaa9-ee29e1ff21be" >
+		<http:listener doc:name="Listener" doc:id="7046ac66-e0bc-4ed1-9220-303c0cbe9d75" config-ref="HTTP_Listener_config" path="/git"/>
+		<logger level="INFO" doc:name="Logger" doc:id="d7e86481-ab55-400a-a98c-52b023b21843" message="request received"/>
+		<set-variable value="#[attributes.queryParams.id]" doc:name="Set Variable" doc:id="a3714073-905a-40ff-9da2-f28a901572e6" variableName="id"/>
+		<db:select doc:name="Select" doc:id="cefa9507-431c-47f6-8528-4e91b052cb1d" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from prakash.employee where id= :id]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	id: vars.id
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="742a1cf9-e8ec-450a-9567-676f2e79f50b" >
+			<when expression="#[sizeOf(payload)&gt;0]">
+				<ee:transform doc:name="Transform Message" doc:id="23908f5a-624b-4242-a1d4-dbbf94a6003d" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="8b9d4dd9-fd56-40e6-b2cb-fd13faff903b" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":"the given number is not exists in the database "
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="0bb39c1b-caa6-488c-873a-a08c7bb695bf" type="DB:BAD_SQL_SYNTAX, DB:CONNECTIVITY, DB:QUERY_EXECUTION">
+				<ee:transform doc:name="Transform Message" doc:id="83e27f7a-11fc-4fc0-aa80-958a80e82ffc" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"error":"something went wrong in database"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
